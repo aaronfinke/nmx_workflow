@@ -17,6 +17,8 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
 META_DATA_DIR = DATA_DIR / "meta"
 
+POOCH_DATA_DIR = RAW_DATA_DIR / "main"
+
 MODELS_DIR = PROJ_ROOT / "models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
