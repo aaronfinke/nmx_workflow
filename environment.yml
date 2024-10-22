@@ -1,0 +1,29 @@
+name: nmx_workflow
+channels:
+  - conda-forge
+  - scipp
+dependencies:
+  - python=3.12.5
+  - black
+  - flake8
+  - isort
+  - pip
+  - typer
+  - loguru
+  - tqdm
+  - loguru=0.7.2
+  - scipp[all]=24.9.1
+  - plopp=24.9.1
+  - scippneutron=24.8.0
+  - scippnexus=24.9.0
+  - sciline=24.6.3
+  - pythreejs=2.4.2
+  - ipympl=0.9.4
+  - mpltoolbox=24.5.1
+  - ipywidgets=8.1.5
+  - essnmx=24.10.0
+  - dials=3.22.1
+  - pip:
+    - python-dotenv
+    - mkdocs
+    - -e .
