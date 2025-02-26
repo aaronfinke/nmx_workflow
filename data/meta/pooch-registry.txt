@@ -1,1 +1,0 @@
-nmx_by_scipp_2E12.h5 363639bff3ab4a873a67be8a6eb5c19b608f7ba9d0c86c3b478d67567a823d70 https://project.esss.dk/nextcloud/index.php/s/Db983rx3b67wxbR/download?files=nmx_by_scipp_2E12.h5

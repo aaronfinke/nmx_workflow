@@ -1,7 +1,7 @@
 name: nmx_workflow
 channels:
-  - conda-forge
   - scipp
+  - conda-forge
 dependencies:
   - python=3.12.5
   - black
@@ -21,8 +21,7 @@ dependencies:
   - ipympl=0.9.4
   - mpltoolbox=24.5.1
   - ipywidgets=8.1.5
-  - essnmx=24.10.0
-  - dials=3.22.1
+  - essnmx>=24.10.0
   - pip:
     - python-dotenv
     - mkdocs
