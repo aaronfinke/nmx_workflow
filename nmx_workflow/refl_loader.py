@@ -229,7 +229,7 @@ def load(stream_or_path: Union[IO, os.PathLike], copy=False) -> Dict:
     # Make an "identifiers" column
     if "id" in decoded_data and identifiers:
         decoded_data["experiment_identifier"] = [
-            identifiers[x] for x in decoded_data["id"]
+            identifiers[x] for x in decoded_data["id"] if x > 0
         ]
 
     return decoded_data

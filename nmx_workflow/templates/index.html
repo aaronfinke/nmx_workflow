@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotfinding and Other Processes</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        /* Tab styles */
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+        }
+
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+        }
+
+        .tab button:hover {
+            background-color: #ddd;
+        }
+
+        .tab button.active {
+            background-color: #ccc;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Spotfinding and Other Processes</h1>
+    <div class="tab">
+        <button class="tablinks" onclick="openTab(event, 'binning')">Binning</button>
+        <button class="tablinks" onclick="openTab(event, 'spotfinding')">Spotfinding</button>
+        <button class="tablinks" onclick="openTab(event, 'indexing')">Indexing</button>
+        <button class="tablinks" onclick="openTab(event, 'refinement')">Refinement</button>
+    </div>
+    <!-- Binning Tab Content -->
+    <div id="binning" class="tab-content">
+        <h2>Binning Log</h2>
+        <div id="binning-log" style="white-space: pre-wrap; background-color: #f9f9f9; padding: 10px; border: 1px solid #ccc; height: 400px; overflow-y: scroll; font-family: monospace;">
+Loading log...
+        </div>
+    </div>
+
+    <!-- Spotfinding Tab Content -->
+    <div id="spotfinding" class="tab-content">
+        <h2>Spotfinding Histograms</h2>
+        <div id="loading">Loading histograms, please wait...</div>
+        <div id="spotfinding-tabs-container" style="display: none;">
+            <div class="tab" id="spotfinding-tabs"></div>
+            <div id="spotfinding-tab-contents"></div>
+        </div>
+    </div>
+
+    <!-- Indexing Tab Content -->
+    <div id="indexing" class="tab-content">
+        <h2>Indexing Results</h2>
+        <div id="indexing-table-container">
+            <p>Loading indexing results...</p>
+        </div>
+    </div>
+
+    <!-- Refinement Tab Content -->
+    <div id="refinement" class="tab-content">
+        <h2>Refinement Results</h2>
+        <p>Refinement results will be displayed here.</p>
+    </div>
+
+    <script>
+        function fetchIndexingResults() {
+            $.getJSON('/check_histograms', function (response) {
+                if (response.ready) {
+            
+                const container = document.getElementById('indexing-table-container');
+
+                // Fetch the indexing results from the server
+                fetch('/get_indexing_results')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Clear the loading message
+                        container.innerHTML = '';
+
+                        // Create a table
+                        const table = document.createElement('table');
+                        table.style.borderCollapse = 'collapse';
+                        table.style.width = '100%';
+
+                        // Create the table header
+                        const headerRow = document.createElement('tr');
+                        ['Image ID', '# Indexed', '# Unindexed', '% Indexed'].forEach(headerText => {
+                            const th = document.createElement('th');
+                            th.textContent = headerText;
+                            th.style.border = '1px solid #ccc';
+                            th.style.padding = '8px';
+                            th.style.textAlign = 'left';
+                            th.style.backgroundColor = '#f2f2f2';
+                            headerRow.appendChild(th);
+                        });
+                        table.appendChild(headerRow);
+
+                        // Populate the table with data
+                        Object.keys(data).forEach(imageId => {
+                            const row = document.createElement('tr');
+                            const rowData = [
+                                imageId,
+                                data[imageId]['# indexed'],
+                                data[imageId]['# unindexed'],
+                                `${data[imageId]['% indexed']}%`
+                            ];
+                            rowData.forEach(cellData => {
+                                const td = document.createElement('td');
+                                td.textContent = cellData;
+                                td.style.border = '1px solid #ccc';
+                                td.style.padding = '8px';
+                                td.style.textAlign = 'left';
+                                row.appendChild(td);
+                            });
+                            table.appendChild(row);
+                        });
+
+                        // Add the table to the container
+                        container.appendChild(table);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching indexing results:', error);
+                        container.innerHTML = '<p>Error loading indexing results.</p>';
+                    });
+                } else {
+                    // Retry after 1 second
+                    setTimeout(checkHistograms, 1000);
+                }
+            }).fail(function (jqxhr, textStatus, error) {
+                console.error("Request Failed: " + textStatus + ", " + error);
+            });
+        }
+
+        function openTab(event, tabName) {
+            // Prevent the default behavior (e.g., scrolling to the top)
+            event.preventDefault();
+
+            // Hide all tab contents and deactivate all tabs
+            const tabContents = document.getElementsByClassName('tab-content');
+            const tabLinks = document.getElementsByClassName('tablinks');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            for (let i = 0; i < tabLinks.length; i++) {
+                tabLinks[i].classList.remove('active');
+            }
+
+            // Show the selected tab content and activate the tab
+            document.getElementById(tabName).classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            // If the "Spotfinding" tab is clicked, activate the first histogram tab
+            if (tabName === 'spotfinding') {
+                const firstTabButton = document.querySelector('#spotfinding-tabs .tablinks');
+                const firstTabContent = document.querySelector('#spotfinding-tab-contents .tab-content');
+                if (firstTabButton && firstTabContent) {
+                    firstTabButton.classList.add('active');
+                    firstTabContent.classList.add('active');
+                }
+            }
+            // Start fetching the binning log if the "Binning" tab is clicked
+            if (tabName === 'binning') {
+                fetchBinningLog();
+            }
+            // Fetch indexing results if the "Indexing" tab is clicked
+            if (tabName === 'indexing') {
+                fetchIndexingResults();
+            }
+        }        
+
+        let binningLogEventSource = null; // Keep track of the EventSource instance
+
+        function fetchBinningLog() {
+            const logDiv = document.getElementById('binning-log');
+
+            // If an EventSource already exists, do nothing
+            if (binningLogEventSource) {
+                console.log("Binning log stream already active."); // Debug
+                return;
+            }
+
+            console.log("Starting binning log stream..."); // Debug
+            binningLogEventSource = new EventSource('/stream_binning_log');
+
+            binningLogEventSource.onmessage = function (event) {
+                console.log("Received log data:", event.data); // Debug
+                logDiv.textContent += event.data + '\n';
+                logDiv.scrollTop = logDiv.scrollHeight; // Auto-scroll to the bottom
+
+                // Stop streaming if the completion message is received
+                if (event.data.includes("Binning complete")) {
+                    console.log("Binning process complete. Closing stream."); // Debug
+                    binningLogEventSource.close();
+                    binningLogEventSource = null; // Reset the EventSource instance
+                }
+            };
+
+            binningLogEventSource.onerror = function () {
+                console.error("Error fetching log stream."); // Debug
+                logDiv.textContent += '\n[Error: Unable to fetch log stream]\n';
+                binningLogEventSource.close();
+                binningLogEventSource = null; // Reset the EventSource instance
+            };
+        }
+
+        function checkHistograms() {
+            $.getJSON('/check_histograms', function (response) {
+                if (response.ready) {
+                    // Hide the loading message and show the tabs container
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('spotfinding-tabs-container').style.display = 'block';
+
+                    const tabsDiv = document.getElementById('spotfinding-tabs');
+                    const tabContentsDiv = document.getElementById('spotfinding-tab-contents');
+                    const histograms = response.histograms;
+
+                    Object.keys(histograms).forEach((uid, index) => {
+                        // Create a tab button
+                        const tabButton = document.createElement('button');
+                        tabButton.className = 'tablinks';
+                        tabButton.textContent = `Image ${uid}`;
+                        tabButton.onclick = function (event) {
+                            openSpotfindingTab(event, `spotfinding-tab-${uid}`);
+                        };
+                        tabsDiv.appendChild(tabButton);
+
+                        // Create a tab content div
+                        const tabContent = document.createElement('div');
+                        tabContent.id = `spotfinding-tab-${uid}`;
+                        tabContent.className = 'tab-content';
+                        tabContentsDiv.appendChild(tabContent);
+
+                        // Render the Plotly histogram in the tab content
+                        const data = histograms[uid].data;
+                        const layout = histograms[uid].layout;
+                        console.log(`Rendering histogram for UID ${uid}`, data, layout); // Debug
+                        Plotly.newPlot(tabContent.id, data, layout);
+
+                        // Activate the first tab by default
+                        if (index === 0) {
+                            tabButton.classList.add('active');
+                            tabContent.classList.add('active');
+                        }
+                    });
+                } else {
+                    // Retry after 1 second
+                    setTimeout(checkHistograms, 1000);
+                }
+            }).fail(function (jqxhr, textStatus, error) {
+                console.error("Request Failed: " + textStatus + ", " + error);
+            });
+        }
+
+        function openSpotfindingTab(event, tabName) {
+            // Prevent the default behavior
+            event.preventDefault();
+
+            // Hide all spotfinding tab contents and deactivate all spotfinding tabs
+            const tabContents = document.getElementById('spotfinding-tab-contents').children;
+            const tabLinks = document.getElementById('spotfinding-tabs').children;
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            for (let i = 0; i < tabLinks.length; i++) {
+                tabLinks[i].classList.remove('active');
+            }
+
+            // Show the selected tab content and activate the tab
+            document.getElementById(tabName).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Start checking for histograms
+        checkHistograms();
+        fetchIndexingResults();
+    </script>
+</body>
+</html>
