@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, render_template, Response, jsonify, send_file
 import random
 
 import plotly.graph_objs as go
@@ -14,8 +14,9 @@ app = Flask(__name__)
 # Simulated data
 data = []
 
-HISTOGRAMS_JSON_PATH = INTERIM_DATA_DIR/'spotfinding.json'
 BINNING_LOG_PATH = INTERIM_DATA_DIR/'binning.log'
+INSTRUMENTVIEW_PATH = INTERIM_DATA_DIR/'view.html'
+HISTOGRAMS_JSON_PATH = INTERIM_DATA_DIR/'spotfinding.json'
 
 @app.route('/')
 def index():
@@ -54,6 +55,21 @@ def stream_binning_log():
 
     return Response(generate(), content_type='text/event-stream')
 
+@app.route('/check_instrumentview')
+def check_instrumentview():
+    if os.path.exists(INSTRUMENTVIEW_PATH):
+        return jsonify({'ready': True})
+    else:
+        return jsonify({'ready': False})
+        
+@app.route('/get_instrumentview')
+def get_instrumentview():
+    if os.path.exists(INSTRUMENTVIEW_PATH):
+        with open(INSTRUMENTVIEW_PATH, 'r') as f:
+            return f.read()
+    else:
+        return "Instrument View is not ready yet.", 404
+    
 @app.route('/check_histograms')
 def check_histograms():
     if os.path.exists(HISTOGRAMS_JSON_PATH):
@@ -82,6 +98,16 @@ def get_indexing_results():
     else:
         return jsonify({'ready': False})  
 
+@app.route('/get_refine_results')
+def get_refine_results():
+    INDEXING_JSON_PATH = INTERIM_DATA_DIR / 'refine.json'
+    if os.path.exists(INDEXING_JSON_PATH):
+        with open(INDEXING_JSON_PATH, 'r') as f:
+            refine_results = json.load(f)
+        return jsonify({'ready': True, 'refine_results': refine_results})
+    else:
+        return jsonify({'ready': False})  
+
 def deserialize_binary_data(data):
     """Deserialize binary data from the JSON."""
     import base64
@@ -90,11 +116,34 @@ def deserialize_binary_data(data):
     bdata = base64.b64decode(data['bdata'])
     dtype = np.dtype(data['dtype'])
     return np.frombuffer(bdata, dtype=dtype).tolist()
+
 def wait_for_file(filepath):
     """Wait for a file to be created, with a timeout."""
     while not os.path.exists(filepath):
         time.sleep(1)  # Check every second
 
+@app.route('/check_binning')
+def check_binning():
+    # Simulate readiness check for binning
+    if os.path.exists(BINNING_LOG_PATH):
+        return jsonify({'ready': True})
+    return jsonify({'ready': False})
+
+@app.route('/check_indexing')
+def check_indexing():
+    # Simulate readiness check for indexing
+    INDEXING_JSON_PATH = INTERIM_DATA_DIR / 'indexing.json'
+    if os.path.exists(INDEXING_JSON_PATH):
+        return jsonify({'ready': True})
+    return jsonify({'ready': False})
+
+@app.route('/check_refinement')
+def check_refinement():
+    # Simulate readiness check for refinement
+    REFINEMENT_JSON_PATH = INTERIM_DATA_DIR / 'refinement.json'
+    if os.path.exists(REFINEMENT_JSON_PATH):
+        return jsonify({'ready': True})
+    return jsonify({'ready': False})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
