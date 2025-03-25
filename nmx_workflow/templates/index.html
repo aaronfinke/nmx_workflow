@@ -6,8 +6,15 @@
     <title>Spotfinding and Other Processes</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js" crossorigin="anonymous"></script>    
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
+      integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"
+      crossorigin="anonymous"
+    ></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
@@ -94,7 +101,7 @@
     </style>
   </head>
   <body>
-    <h1>Spotfinding and Other Processes</h1>
+    <h1>Results for Sample</h1>
     <div class="tab">
       <button class="tablinks" onclick="openTab(event, 'binning')">
         Binning
@@ -110,6 +117,9 @@
       </button>
       <button class="tablinks" onclick="openTab(event, 'refinement')">
         Refinement
+      </button>
+      <button class="tablinks" onclick="openTab(event, 'integration')">
+        Integration
       </button>
     </div>
     <!-- Binning Tab Content -->
@@ -129,16 +139,16 @@
       >
         Loading log...
       </div>
-
     </div>
     <!-- InstrumentView Tab Content -->
     <div id="instrumentview" class="tab-content">
-        <h2>Instrument View</h2>
-        <h4>Use mouse/scroll wheel to pan/zoom.</h4>
-        <div id="instrumentview-container">
-            <p>Loading Instrument View...</p>
-        </div>
-    </div>  
+      <h2>Instrument View</h2>
+      <p>Use mouse/scroll wheel to rotate/zoom.</p>
+      <p>Ctrl+click (Mac ⌘+click) and drag to pan.</p>
+      <div id="instrumentview-container">
+        <p>Loading Instrument View...</p>
+      </div>
+    </div>
 
     <!-- Spotfinding Tab Content -->
     <div id="spotfinding" class="tab-content">
@@ -166,91 +176,144 @@
       </div>
     </div>
 
+    <!-- Spotfinding Tab Content -->
+    <div id="integration" class="tab-content">
+      <h2>Integration Results</h2>
+      <div id="loading">Loading integration results, please wait...</div>
+      <div id="integration-tabs-container">
+        <div class="tab" id="integration-tabs"></div>
+        <div id="integration-tab-contents"></div>
+      </div>
+    </div>
+
     <script>
-        // function updateUI(source) {
-        //   console.log(`${source} is ready. Updating UI...`); // Debug
+      // function updateUI(source) {
+      //   console.log(`${source} is ready. Updating UI...`); // Debug
 
-        //   if (source === "binning") {
-        //     // Start fetching the binning log
-        //     fetchBinningLog();
-        //   }
+      //   if (source === "binning") {
+      //     // Start fetching the binning log
+      //     fetchBinningLog();
+      //   }
 
-        //   if (source === "instrumentview") {
-        //     // Start fetching the instrument view
-        //     loadInstrumentView();
-        //   }
+      //   if (source === "instrumentview") {
+      //     // Start fetching the instrument view
+      //     loadInstrumentView();
+      //   }
 
-        //   if (source === "spotfinding") {
-        //     // Show the spotfinding tabs container and render histograms
-        //     document.getElementById("loading").style.display = "none";
-        //     document.getElementById(
-        //       "spotfinding-tabs-container"
-        //     ).style.display = "block";
-        //     renderSpotfindingTabs();
-        //   }
+      //   if (source === "spotfinding") {
+      //     // Show the spotfinding tabs container and render histograms
+      //     document.getElementById("loading").style.display = "none";
+      //     document.getElementById(
+      //       "spotfinding-tabs-container"
+      //     ).style.display = "block";
+      //     renderSpotfindingTabs();
+      //   }
 
-        //   if (source === "indexing") {
-        //     // Fetch and display indexing results
-        //     fetchIndexingResults();
-        //   }
+      //   if (source === "indexing") {
+      //     // Fetch and display indexing results
+      //     fetchIndexingResults();
+      //   }
 
-        //   if (source === "refinement") {
-        //     // Update the refinement tab (if needed)
-        //     loadRefineSummary();
-        //   }
-        // }
+      //   if (source === "refinement") {
+      //     // Update the refinement tab (if needed)
+      //     loadRefineSummary();
+      //   }
+      // }
+      function openTab(event, tabName) {
+        // Prevent the default behavior (e.g., scrolling to the top)
+        event.preventDefault();
 
-        function loadInstrumentView() {
-            const container = document.getElementById('instrumentview-container');
-
-            // Check if the instrument view is ready
-            fetch('/check_instrumentview')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.ready) {
-                        container.innerHTML = "";
-
-                        // If ready, load the view.html content
-                        fetch('/get_instrumentview')
-                            .then(response => {
-                                if (response.ok) {
-                                    return response.text();
-                                } else {
-                                    throw new Error('Instrument View is not ready yet.');
-                                }
-                            })
-                            .then(html => {
-                                console.log('Instrument View HTML:', html); // Debugging log
-                                container.innerHTML = html;
-
-                                // Execute scripts in the loaded HTML
-                                const scripts = container.querySelectorAll('script');
-                                scripts.forEach(script => {
-                                    const newScript = document.createElement('script');
-                                    if (script.src) {
-                                        newScript.src = script.src; // Copy external script src
-                                    } else {
-                                        newScript.textContent = script.textContent; // Copy inline script content
-                                    }
-                                    document.body.appendChild(newScript); // Append to the document to execute
-                                });
-                                
-                            })
-                            .catch(error => {
-                                console.error('Error loading Instrument View:', error);
-                                container.innerHTML = '<p>Error loading Instrument View.</p>';
-                            });
-                    } else {
-                        // If not ready, display a message
-                        container.innerHTML = '<p>Instrument View is not ready yet. Please wait...</p>';
-                        setTimeout(loadInstrumentView, 5000); // Retry after 5 seconds
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking Instrument View readiness:', error);
-                    container.innerHTML = '<p>Error checking Instrument View readiness.</p>';
-                });
+        // Hide all tab contents and deactivate all tabs
+        const tabContents = document.getElementsByClassName("tab-content");
+        const tabLinks = document.getElementsByClassName("tablinks");
+        for (let i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
         }
+        for (let i = 0; i < tabLinks.length; i++) {
+          tabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected tab content and activate the tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+
+        // If the "Spotfinding" tab is clicked, activate the first histogram tab
+        if (tabName === "spotfinding") {
+          renderSpotfindingTabs();
+        }
+        // Start fetching the binning log if the "Binning" tab is clicked
+        if (tabName === "binning") {
+          fetchBinningLog();
+        }
+        // Fetch indexing results if the "Indexing" tab is clicked
+        if (tabName === "indexing") {
+          fetchIndexingResults();
+        }
+        if (tabName === "refinement") {
+          loadRefineSummary();
+        }
+        // If the "Spotfinding" tab is clicked, activate the first histogram tab
+        if (tabName === "instrumentview") {
+          loadInstrumentView();
+        }
+        // If the "Integration" tab is clicked, activate the first histogram tab
+        if (tabName === "integration") {
+          loadIntegration();
+        }
+      }
+
+      function loadInstrumentView() {
+        const container = document.getElementById("instrumentview-container");
+
+        // Check if the instrument view is ready
+        fetch("/check_instrumentview")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.ready) {
+              container.innerHTML = "";
+
+              // If ready, load the view.html content
+              fetch("/get_instrumentview")
+                .then((response) => {
+                  if (response.ok) {
+                    return response.text();
+                  } else {
+                    throw new Error("Instrument View is not ready yet.");
+                  }
+                })
+                .then((html) => {
+                  console.log("Instrument View HTML:", html); // Debugging log
+                  container.innerHTML = html;
+
+                  // Execute scripts in the loaded HTML
+                  const scripts = container.querySelectorAll("script");
+                  scripts.forEach((script) => {
+                    const newScript = document.createElement("script");
+                    if (script.src) {
+                      newScript.src = script.src; // Copy external script src
+                    } else {
+                      newScript.textContent = script.textContent; // Copy inline script content
+                    }
+                    document.body.appendChild(newScript); // Append to the document to execute
+                  });
+                })
+                .catch((error) => {
+                  console.error("Error loading Instrument View:", error);
+                  container.innerHTML = "<p>Error loading Instrument View.</p>";
+                });
+            } else {
+              // If not ready, display a message
+              container.innerHTML =
+                "<p>Instrument View is not ready yet. Please wait...</p>";
+              setTimeout(loadInstrumentView, 5000); // Retry after 5 seconds
+            }
+          })
+          .catch((error) => {
+            console.error("Error checking Instrument View readiness:", error);
+            container.innerHTML =
+              "<p>Error checking Instrument View readiness.</p>";
+          });
+      }
 
       function fetchIndexingResults() {
         const container = document.getElementById("indexing-table-container");
@@ -377,46 +440,6 @@
           });
       }
 
-      function openTab(event, tabName) {
-        // Prevent the default behavior (e.g., scrolling to the top)
-        event.preventDefault();
-
-        // Hide all tab contents and deactivate all tabs
-        const tabContents = document.getElementsByClassName("tab-content");
-        const tabLinks = document.getElementsByClassName("tablinks");
-        for (let i = 0; i < tabContents.length; i++) {
-          tabContents[i].classList.remove("active");
-        }
-        for (let i = 0; i < tabLinks.length; i++) {
-          tabLinks[i].classList.remove("active");
-        }
-
-        // Show the selected tab content and activate the tab
-        document.getElementById(tabName).classList.add("active");
-        event.currentTarget.classList.add("active");
-
-        // If the "Spotfinding" tab is clicked, activate the first histogram tab
-        if (tabName === "spotfinding") {
-          renderSpotfindingTabs();
-        }
-        // Start fetching the binning log if the "Binning" tab is clicked
-        if (tabName === "binning") {
-          fetchBinningLog();
-        }
-        // Fetch indexing results if the "Indexing" tab is clicked
-        if (tabName === "indexing") {
-          fetchIndexingResults();
-        }
-        if (tabName === "refinement") {
-          loadRefineSummary();
-        }
-        // If the "Spotfinding" tab is clicked, activate the first histogram tab
-        if (tabName === "instrumentview") {
-          loadInstrumentView();
-        }
-
-      }
-
       let binningLogEventSource = null; // Keep track of the EventSource instance
 
       function fetchBinningLog() {
@@ -507,6 +530,89 @@
           "spotfinding-tab-contents"
         ).children;
         const tabLinks = document.getElementById("spotfinding-tabs").children;
+        for (let i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < tabLinks.length; i++) {
+          tabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected tab content and activate the tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+
+      function loadIntegration() {
+        const tabsDiv = document.getElementById("integration-tabs");
+        const tabContentsDiv = document.getElementById(
+          "integration-tab-contents"
+        );
+
+        // Clear existing tabs and contents
+        tabsDiv.innerHTML = "";
+        tabContentsDiv.innerHTML = "";
+
+        // Fetch histograms data
+        $.getJSON("/check_integration", function (response) {
+          const integration = response.integration;
+
+          Object.keys(integration).forEach((uid, index) => {
+            // Create a tab button
+            const tabButton = document.createElement("button");
+            tabButton.className = "tablinks";
+            tabButton.textContent = `Image ${uid}`;
+            tabButton.onclick = function (event) {
+                openIntegrationTab(event, `integration-tab-${uid}`);
+            };
+            tabsDiv.appendChild(tabButton);
+
+            // Create a tab content div
+            const tabContent = document.createElement("div");
+            tabContent.id = `integration-tab-${uid}`;
+            tabContent.className = "tab-content";
+            tabContentsDiv.appendChild(tabContent);
+
+            // Create a container for the resolution plot
+            const resPlotDiv = document.createElement("div");
+            resPlotDiv.id = `integration-res-plot-${uid}`;
+            tabContent.appendChild(resPlotDiv);
+
+            // Render the Plotly Figure against resolution in the tab content
+            const fig_res = integration[uid].fig_res.data;
+            const fig_res_layout = integration[uid].fig_res.layout;
+            console.log(`Rendering integration for Fig_res UID ${uid}`, fig_res, fig_res_layout); // Debug
+            Plotly.newPlot(resPlotDiv.id, fig_res, fig_res_layout);
+
+            // Create a container for the image plot
+            const imgPlotDiv = document.createElement("div");
+            imgPlotDiv.id = `integration-img-plot-${uid}`;
+            tabContent.appendChild(imgPlotDiv);
+            
+            // Render the Plotly Figure against image in the tab content
+            const fig_img = integration[uid].fig_img.data;
+            const fig_img_layout = integration[uid].fig_img.layout;
+            console.log(`Rendering integration for Fig_img UID ${uid}`, fig_img, fig_img_layout); // Debug
+            Plotly.newPlot(imgPlotDiv.id, fig_img, fig_img_layout);
+
+            // Activate the first tab by default
+            if (index === 0) {
+              tabButton.classList.add("active");
+              tabContent.classList.add("active");
+            }
+          });
+        }).fail(function (jqxhr, textStatus, error) {
+          console.error("Error fetching histograms:", textStatus, error);
+        });
+      }
+      function openIntegrationTab(event, tabName) {
+        // Prevent the default behavior
+        event.preventDefault();
+
+        // Hide all spotfinding tab contents and deactivate all integration tabs
+        const tabContents = document.getElementById(
+          "integration-tab-contents"
+        ).children;
+        const tabLinks = document.getElementById("integration-tabs").children;
         for (let i = 0; i < tabContents.length; i++) {
           tabContents[i].classList.remove("active");
         }

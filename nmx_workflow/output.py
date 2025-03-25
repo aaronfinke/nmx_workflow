@@ -17,6 +17,7 @@ data = []
 BINNING_LOG_PATH = INTERIM_DATA_DIR/'binning.log'
 INSTRUMENTVIEW_PATH = INTERIM_DATA_DIR/'view.html'
 HISTOGRAMS_JSON_PATH = INTERIM_DATA_DIR/'spotfinding.json'
+INTEGRATION_JSON_PATH = INTERIM_DATA_DIR/'integration.json'
 
 @app.route('/')
 def index():
@@ -87,7 +88,27 @@ def check_histograms():
         return jsonify({'ready': True, 'histograms': histograms})
     else:
         return jsonify({'ready': False})
-    
+
+@app.route('/check_integration')
+def check_integration():
+    if os.path.exists(INTEGRATION_JSON_PATH):
+        with open(INTEGRATION_JSON_PATH, 'r') as f:
+            integrations = json.load(f)
+
+        # Deserialize binary data if necessary
+        for uid, integration in integrations.items():
+            for name in ['fig_res','fig_img']:
+                for trace in integration[name]['data']:
+                    if 'x' in trace and isinstance(trace['x'], dict) and 'bdata' in trace['x']:
+                        trace['x'] = deserialize_binary_data(trace['x'])
+                    if 'y' in trace and isinstance(trace['y'], dict) and 'bdata' in trace['y']:
+                        trace['y'] = deserialize_binary_data(trace['y'])
+
+        return jsonify({'ready': True, 'integration': integrations})
+    else:
+        return jsonify({'ready': False})
+
+
 @app.route('/get_indexing_results')
 def get_indexing_results():
     INDEXING_JSON_PATH = INTERIM_DATA_DIR / 'indexing.json'
