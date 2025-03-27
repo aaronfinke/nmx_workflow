@@ -98,28 +98,61 @@
       #refinement-table-container table {
         font-size: 12px; /* Set a smaller font size for refinement tables */
       }
+      .status-circle {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background-color: gray; /* Default color */
+      }
     </style>
   </head>
   <body>
     <h1>Results for Sample</h1>
     <div class="tab">
-      <button class="tablinks" onclick="openTab(event, 'binning')">
-        Binning
+      <button
+        class="tablinks"
+        id="binning-tab"
+        onclick="openTab(event, 'binning')"
+      >
+        <span class="status-circle" id="binning-status"></span> Binning
       </button>
-      <button class="tablinks" onclick="openTab(event, 'instrumentview')">
+      <button
+        class="tablinks"
+        id="instrumentview-tab"
+        onclick="openTab(event, 'instrumentview')"
+      >
+        <span class="status-circle" id="instrumentview-status"></span>
         Instrument View
       </button>
-      <button class="tablinks" onclick="openTab(event, 'spotfinding')">
-        Spotfinding
+      <button
+        class="tablinks"
+        id="spotfinding-tab"
+        onclick="openTab(event, 'spotfinding')"
+      >
+        <span class="status-circle" id="spotfinding-status"></span> Spotfinding
       </button>
-      <button class="tablinks" onclick="openTab(event, 'indexing')">
-        Indexing
+      <button
+        class="tablinks"
+        id="indexing-tab"
+        onclick="openTab(event, 'indexing')"
+      >
+        <span class="status-circle" id="indexing-status"></span> Indexing
       </button>
-      <button class="tablinks" onclick="openTab(event, 'refinement')">
-        Refinement
+      <button
+        class="tablinks"
+        id="refinement-tab"
+        onclick="openTab(event, 'refinement')"
+      >
+        <span class="status-circle" id="refinement-status"></span> Refinement
       </button>
-      <button class="tablinks" onclick="openTab(event, 'integration')">
-        Integration
+      <button
+        class="tablinks"
+        id="integration-tab"
+        onclick="openTab(event, 'integration')"
+      >
+        <span class="status-circle" id="integration-status"></span> Integration
       </button>
     </div>
     <!-- Binning Tab Content -->
@@ -153,7 +186,6 @@
     <!-- Spotfinding Tab Content -->
     <div id="spotfinding" class="tab-content">
       <h2>Spotfinding Histograms</h2>
-      <div id="loading">Loading histograms, please wait...</div>
       <div id="spotfinding-tabs-container">
         <div class="tab" id="spotfinding-tabs"></div>
         <div id="spotfinding-tab-contents"></div>
@@ -176,49 +208,41 @@
       </div>
     </div>
 
-    <!-- Spotfinding Tab Content -->
+    <!-- Integration Tab Content -->
     <div id="integration" class="tab-content">
       <h2>Integration Results</h2>
-      <div id="loading">Loading integration results, please wait...</div>
       <div id="integration-tabs-container">
         <div class="tab" id="integration-tabs"></div>
         <div id="integration-tab-contents"></div>
       </div>
     </div>
 
+    <!-- Scaling Tab Content -->
+    <div id="scaling" class="tab-content">
+      <h2>Integration Results</h2>
+      <div id="scaling-tabs-container">
+        <div class="tab" id="scaling-tabs"></div>
+        <div id="scaling-tab-contents"></div>
+      </div>
+    </div>
+
     <script>
-      // function updateUI(source) {
-      //   console.log(`${source} is ready. Updating UI...`); // Debug
+      function updateTabStatus(tabId, status) {
+        const statusCircle = document.getElementById(`${tabId}-status`);
+        if (!statusCircle) return;
 
-      //   if (source === "binning") {
-      //     // Start fetching the binning log
-      //     fetchBinningLog();
-      //   }
+        // Set the color based on the status
+        if (status === "ready") {
+          statusCircle.style.backgroundColor = "green";
+        } else if (status === "pending") {
+          statusCircle.style.backgroundColor = "orange";
+        } else if (status === "error") {
+          statusCircle.style.backgroundColor = "red";
+        } else {
+          statusCircle.style.backgroundColor = "gray"; // Default color
+        }
+      }
 
-      //   if (source === "instrumentview") {
-      //     // Start fetching the instrument view
-      //     loadInstrumentView();
-      //   }
-
-      //   if (source === "spotfinding") {
-      //     // Show the spotfinding tabs container and render histograms
-      //     document.getElementById("loading").style.display = "none";
-      //     document.getElementById(
-      //       "spotfinding-tabs-container"
-      //     ).style.display = "block";
-      //     renderSpotfindingTabs();
-      //   }
-
-      //   if (source === "indexing") {
-      //     // Fetch and display indexing results
-      //     fetchIndexingResults();
-      //   }
-
-      //   if (source === "refinement") {
-      //     // Update the refinement tab (if needed)
-      //     loadRefineSummary();
-      //   }
-      // }
       function openTab(event, tabName) {
         // Prevent the default behavior (e.g., scrolling to the top)
         event.preventDefault();
@@ -562,7 +586,7 @@
             tabButton.className = "tablinks";
             tabButton.textContent = `Image ${uid}`;
             tabButton.onclick = function (event) {
-                openIntegrationTab(event, `integration-tab-${uid}`);
+              openIntegrationTab(event, `integration-tab-${uid}`);
             };
             tabsDiv.appendChild(tabButton);
 
@@ -580,18 +604,26 @@
             // Render the Plotly Figure against resolution in the tab content
             const fig_res = integration[uid].fig_res.data;
             const fig_res_layout = integration[uid].fig_res.layout;
-            console.log(`Rendering integration for Fig_res UID ${uid}`, fig_res, fig_res_layout); // Debug
+            console.log(
+              `Rendering integration for Fig_res UID ${uid}`,
+              fig_res,
+              fig_res_layout
+            ); // Debug
             Plotly.newPlot(resPlotDiv.id, fig_res, fig_res_layout);
 
             // Create a container for the image plot
             const imgPlotDiv = document.createElement("div");
             imgPlotDiv.id = `integration-img-plot-${uid}`;
             tabContent.appendChild(imgPlotDiv);
-            
+
             // Render the Plotly Figure against image in the tab content
             const fig_img = integration[uid].fig_img.data;
             const fig_img_layout = integration[uid].fig_img.layout;
-            console.log(`Rendering integration for Fig_img UID ${uid}`, fig_img, fig_img_layout); // Debug
+            console.log(
+              `Rendering integration for Fig_img UID ${uid}`,
+              fig_img,
+              fig_img_layout
+            ); // Debug
             Plotly.newPlot(imgPlotDiv.id, fig_img, fig_img_layout);
 
             // Activate the first tab by default
@@ -624,6 +656,27 @@
         document.getElementById(tabName).classList.add("active");
         event.currentTarget.classList.add("active");
       }
+
+      // Example: Update statuses dynamically
+        function checkStatuses() {
+        // Simulate fetching statuses from the server
+        const statuses = {
+            binning: "ready",
+            instrumentview: "pending",
+            spotfinding: "error",
+            indexing: "ready",
+            refinement: "pending",
+            integration: "ready",
+        };
+
+        // Update each tab's status
+        Object.keys(statuses).forEach((tabId) => {
+            updateTabStatus(tabId, statuses[tabId]);
+        });
+        }
+
+        // Call the function to update statuses
+        checkStatuses();
     </script>
   </body>
 </html>
