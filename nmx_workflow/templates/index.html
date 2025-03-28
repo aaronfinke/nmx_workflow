@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spotfinding and Other Processes</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
@@ -109,7 +109,7 @@
     </style>
   </head>
   <body>
-    <h1>Results for Sample</h1>
+    <h1>Results for Sample X</h1>
     <div class="tab">
       <button
         class="tablinks"
@@ -153,6 +153,13 @@
         onclick="openTab(event, 'integration')"
       >
         <span class="status-circle" id="integration-status"></span> Integration
+      </button>
+      <button
+        class="tablinks"
+        id="scaling-tab"
+        onclick="openTab(event, 'scaling')"
+      >
+        <span class="status-circle" id="scaling-status"></span> Scaling
       </button>
     </div>
     <!-- Binning Tab Content -->
@@ -219,7 +226,7 @@
 
     <!-- Scaling Tab Content -->
     <div id="scaling" class="tab-content">
-      <h2>Integration Results</h2>
+      <h2>Scaling Results</h2>
       <div id="scaling-tabs-container">
         <div class="tab" id="scaling-tabs"></div>
         <div id="scaling-tab-contents"></div>
@@ -227,6 +234,26 @@
     </div>
 
     <script>
+        function startStatusStream() {
+
+            const eventSource = new EventSource('/stream_status');
+
+            eventSource.onmessage = function (event) {
+            const statuses = JSON.parse(event.data);
+            console.log("Received statuses:", statuses); // Debugging log
+
+            // Update each tab's status
+            Object.keys(statuses).forEach((tabId) => {
+                updateTabStatus(tabId, statuses[tabId]);
+            });
+            };
+
+            eventSource.onerror = function () {
+            console.error("Error receiving status updates.");
+            eventSource.close(); // Close the connection on error
+            };
+        }
+
       function updateTabStatus(tabId, status) {
         const statusCircle = document.getElementById(`${tabId}-status`);
         if (!statusCircle) return;
@@ -274,7 +301,7 @@
           fetchIndexingResults();
         }
         if (tabName === "refinement") {
-          loadRefineSummary();
+          fetchRefineResults();
         }
         // If the "Spotfinding" tab is clicked, activate the first histogram tab
         if (tabName === "instrumentview") {
@@ -290,10 +317,10 @@
         const container = document.getElementById("instrumentview-container");
 
         // Check if the instrument view is ready
-        fetch("/check_instrumentview")
+        fetch("/instrumentview_status")
           .then((response) => response.json())
           .then((data) => {
-            if (data.ready) {
+            if (data.status === "ready") {
               container.innerHTML = "";
 
               // If ready, load the view.html content
@@ -342,53 +369,57 @@
       function fetchIndexingResults() {
         const container = document.getElementById("indexing-table-container");
         // Fetch the indexing results from the server
-        fetch("/get_indexing_results")
+        fetch("/indexing_status")
           .then((response) => response.json())
-          .then((data) => {
-            if (data.ready) {
-              // Clear the loading message
-              container.innerHTML = "";
+          .then((status) => {
+            if (status.status === "ready") {
+              fetch("/get_indexing")
+                .then((response) => response.json())
+                .then((data) => {
+                  // Clear the loading message
+                  container.innerHTML = "";
+                  console.log("Data: ");
+                  // Create a table
+                  const table = document.createElement("table");
 
-              // Create a table
-              const table = document.createElement("table");
+                  // Create the table header
+                  const headerRow = document.createElement("tr");
+                  [
+                    "Image ID",
+                    "Unit Cell",
+                    "Space Group",
+                    "# Indexed",
+                    "# Unindexed",
+                    "% Indexed",
+                  ].forEach((headerText) => {
+                    const th = document.createElement("th");
+                    th.textContent = headerText;
+                    headerRow.appendChild(th);
+                  });
+                  table.appendChild(headerRow);
 
-              // Create the table header
-              const headerRow = document.createElement("tr");
-              [
-                "Image ID",
-                "Unit Cell",
-                "Space Group",
-                "# Indexed",
-                "# Unindexed",
-                "% Indexed",
-              ].forEach((headerText) => {
-                const th = document.createElement("th");
-                th.textContent = headerText;
-                headerRow.appendChild(th);
-              });
-              table.appendChild(headerRow);
+                  // Populate the table with data
+                  Object.keys(data.indexing_results).forEach((imageId) => {
+                    const row = document.createElement("tr");
+                    const rowData = [
+                      imageId,
+                      data.indexing_results[imageId]["Unit cell"],
+                      data.indexing_results[imageId]["Space group"],
+                      data.indexing_results[imageId]["# indexed"],
+                      data.indexing_results[imageId]["# unindexed"],
+                      `${data.indexing_results[imageId]["% indexed"]}%`,
+                    ];
+                    rowData.forEach((cellData) => {
+                      const td = document.createElement("td");
+                      td.textContent = cellData;
+                      row.appendChild(td);
+                    });
+                    table.appendChild(row);
+                  });
 
-              // Populate the table with data
-              Object.keys(data.indexing_results).forEach((imageId) => {
-                const row = document.createElement("tr");
-                const rowData = [
-                  imageId,
-                  data.indexing_results[imageId]["Unit cell"],
-                  data.indexing_results[imageId]["Space group"],
-                  data.indexing_results[imageId]["# indexed"],
-                  data.indexing_results[imageId]["# unindexed"],
-                  `${data.indexing_results[imageId]["% indexed"]}%`,
-                ];
-                rowData.forEach((cellData) => {
-                  const td = document.createElement("td");
-                  td.textContent = cellData;
-                  row.appendChild(td);
+                  // Add the table to the container
+                  container.appendChild(table);
                 });
-                table.appendChild(row);
-              });
-
-              // Add the table to the container
-              container.appendChild(table);
             } else {
               container.innerHTML = "<p>No indexing results available.</p>";
             }
@@ -398,69 +429,75 @@
             container.innerHTML = "<p>Error loading indexing results.</p>";
           });
       }
-      function loadRefineSummary() {
+
+      function fetchRefineResults() {
         const container = document.getElementById("refinement-table-container");
-        fetch("/get_refine_results")
+        // Fetch the indexing results from the server
+        fetch("/refine_status")
           .then((response) => response.json())
-          .then((data) => {
-            if (data.ready) {
-              // Clear the loading message
-              container.innerHTML = "";
+          .then((status) => {
+            if (status.status === "ready") {
+              fetch("/get_refine")
+                .then((response) => response.json())
+                .then((data) => {
+                  // Clear the loading message
+                  container.innerHTML = "";
 
-              console.log("Refine Summary Data:", data);
+                  console.log("Refine Summary Data:", data);
 
-              // Iterate over each refinement cycle
-              Object.keys(data.refine_results).forEach((cycleId) => {
-                const cycleData = data.refine_results[cycleId];
+                  // Iterate over each refinement cycle
+                  Object.keys(data.refine_results).forEach((cycleId) => {
+                    const cycleData = data.refine_results[cycleId];
 
-                // Create a title for the cycle
-                const title = document.createElement("h3");
-                title.textContent = `Refinement Cycle ${cycleId}`;
-                container.appendChild(title);
+                    // Create a title for the cycle
+                    const title = document.createElement("h3");
+                    title.textContent = `Refinement Cycle ${cycleId}`;
+                    container.appendChild(title);
 
-                // Create a table for the cycle
-                const table = document.createElement("table");
-                table.style.borderCollapse = "collapse";
-                table.style.width = "30%"; // Match the width of other tables
-                table.style.marginLeft = "0"; // Align the table to the left
+                    // Create a table for the cycle
+                    const table = document.createElement("table");
+                    table.style.borderCollapse = "collapse";
+                    table.style.width = "30%"; // Match the width of other tables
+                    table.style.marginLeft = "0"; // Align the table to the left
 
-                // Create the table header
-                const headerRow = document.createElement("tr");
-                ["Item", "Overall", "Low", "High"].forEach((headerText) => {
-                  const th = document.createElement("th");
-                  th.textContent = headerText;
-                  th.style.border = "1px solid #ccc";
-                  th.style.padding = "8px";
-                  th.style.textAlign = "left";
-                  th.style.backgroundColor = "#f2f2f2";
-                  headerRow.appendChild(th);
-                });
-                table.appendChild(headerRow);
+                    // Create the table header
+                    const headerRow = document.createElement("tr");
+                    ["Item", "Overall", "Low", "High"].forEach((headerText) => {
+                      const th = document.createElement("th");
+                      th.textContent = headerText;
+                      th.style.border = "1px solid #ccc";
+                      th.style.padding = "8px";
+                      th.style.textAlign = "left";
+                      th.style.backgroundColor = "#f2f2f2";
+                      headerRow.appendChild(th);
+                    });
+                    table.appendChild(headerRow);
 
-                // Populate table rows
-                cycleData.forEach((row) => {
-                  const tr = document.createElement("tr");
-                  ["item", "overall", "low", "high"].forEach((key) => {
-                    const td = document.createElement("td");
-                    td.textContent = row[key];
-                    td.style.border = "1px solid #ccc";
-                    td.style.padding = "8px";
-                    td.style.textAlign = "left";
-                    tr.appendChild(td);
+                    // Populate table rows
+                    cycleData.forEach((row) => {
+                      const tr = document.createElement("tr");
+                      ["item", "overall", "low", "high"].forEach((key) => {
+                        const td = document.createElement("td");
+                        td.textContent = row[key];
+                        td.style.border = "1px solid #ccc";
+                        td.style.padding = "8px";
+                        td.style.textAlign = "left";
+                        tr.appendChild(td);
+                      });
+                      table.appendChild(tr);
+                    });
+
+                    // Add the table to the container
+                    container.appendChild(table);
                   });
-                  table.appendChild(tr);
                 });
-
-                // Add the table to the container
-                container.appendChild(table);
-              });
             } else {
-              container.innerHTML = "<p>No refinement results available.</p>";
+              container.innerHTML = "<p>No indexing results available.</p>";
             }
           })
           .catch((error) => {
-            console.error("Error loading refine summary:", error);
-            container.innerHTML = "<p>Error loading refinement results.</p>";
+            console.error("Error fetching indexing results:", error);
+            container.innerHTML = "<p>Error loading indexing results.</p>";
           });
       }
 
@@ -499,6 +536,27 @@
         };
       }
 
+      function openSpotfindingTab(event, tabName) {
+        // Prevent the default behavior
+        event.preventDefault();
+
+        // Hide all spotfinding tab contents and deactivate all spotfinding tabs
+        const tabContents = document.getElementById(
+          "spotfinding-tab-contents"
+        ).children;
+        const tabLinks = document.getElementById("spotfinding-tabs").children;
+        for (let i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < tabLinks.length; i++) {
+          tabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected tab content and activate the tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+
       function renderSpotfindingTabs() {
         const tabsDiv = document.getElementById("spotfinding-tabs");
         const tabContentsDiv = document.getElementById(
@@ -509,51 +567,78 @@
         tabsDiv.innerHTML = "";
         tabContentsDiv.innerHTML = "";
 
-        // Fetch histograms data
-        $.getJSON("/check_histograms", function (response) {
-          const histograms = response.histograms;
+        const container = document.getElementById(
+          "spotfinding-table-container"
+        );
+        // Fetch the indexing results from the server
+        fetch("/spotfinding_status")
+          .then((response) => response.json())
+          .then((status) => {
+            if (status.status === "ready") {
+              fetch("/get_spotfinding")
+                .then((response) => response.json())
+                .then((data) => {
+                  const histograms = data.histograms;
 
-          Object.keys(histograms).forEach((uid, index) => {
-            // Create a tab button
-            const tabButton = document.createElement("button");
-            tabButton.className = "tablinks";
-            tabButton.textContent = `Image ${uid}`;
-            tabButton.onclick = function (event) {
-              openSpotfindingTab(event, `spotfinding-tab-${uid}`);
-            };
-            tabsDiv.appendChild(tabButton);
+                  Object.keys(histograms).forEach((uid, index) => {
+                    // Create a tab button
+                    const tabButton = document.createElement("button");
+                    tabButton.className = "tablinks";
+                    tabButton.textContent = `Image ${uid}`;
+                    tabButton.onclick = function (event) {
+                      openSpotfindingTab(event, `spotfinding-tab-${uid}`);
+                    };
+                    tabsDiv.appendChild(tabButton);
 
-            // Create a tab content div
-            const tabContent = document.createElement("div");
-            tabContent.id = `spotfinding-tab-${uid}`;
-            tabContent.className = "tab-content";
-            tabContentsDiv.appendChild(tabContent);
+                    // Create a tab content div
+                    const tabContent = document.createElement("div");
+                    tabContent.id = `spotfinding-tab-${uid}`;
+                    tabContent.className = "tab-content";
+                    tabContentsDiv.appendChild(tabContent);
 
-            // Render the Plotly histogram in the tab content
-            const data = histograms[uid].data;
-            const layout = histograms[uid].layout;
-            console.log(`Rendering histogram for UID ${uid}`, data, layout); // Debug
-            Plotly.newPlot(tabContent.id, data, layout);
+                    // Render the Plotly histogram in the tab content
+                    const data = histograms[uid].data;
+                    const layout = histograms[uid].layout;
+                    console.log(
+                      `Rendering histogram for UID ${uid}`,
+                      data,
+                      layout
+                    ); // Debug
+                    Plotly.newPlot(tabContent.id, data, layout);
 
-            // Activate the first tab by default
-            if (index === 0) {
-              tabButton.classList.add("active");
-              tabContent.classList.add("active");
+                    // Activate the first tab by default
+                    if (index === 0) {
+                      tabButton.classList.add("active");
+                      tabContent.classList.add("active");
+                    }
+                  });
+                })
+                .fail(function (jqxhr, textStatus, error) {
+                  console.error(
+                    "Error fetching histograms:",
+                    textStatus,
+                    error
+                  );
+                });
+            } else {
+              container.innerHTML = "<p>No indexing results available.</p>";
             }
+          })
+          .catch((error) => {
+            console.error("Error fetching indexing results:", error);
+            container.innerHTML = "<p>Error loading indexing results.</p>";
           });
-        }).fail(function (jqxhr, textStatus, error) {
-          console.error("Error fetching histograms:", textStatus, error);
-        });
       }
-      function openSpotfindingTab(event, tabName) {
+
+      function openIntegrationTab(event, tabName) {
         // Prevent the default behavior
         event.preventDefault();
 
-        // Hide all spotfinding tab contents and deactivate all spotfinding tabs
+        // Hide all spotfinding tab contents and deactivate all integration tabs
         const tabContents = document.getElementById(
-          "spotfinding-tab-contents"
+          "integration-tab-contents"
         ).children;
-        const tabLinks = document.getElementById("spotfinding-tabs").children;
+        const tabLinks = document.getElementById("integration-tabs").children;
         for (let i = 0; i < tabContents.length; i++) {
           tabContents[i].classList.remove("active");
         }
@@ -576,107 +661,78 @@
         tabsDiv.innerHTML = "";
         tabContentsDiv.innerHTML = "";
 
-        // Fetch histograms data
-        $.getJSON("/check_integration", function (response) {
-          const integration = response.integration;
+        // Fetch the indexing results from the server
+        fetch("/integration_status")
+          .then((response) => response.json())
+          .then((status) => {
+            console.log("status: ", status);
+            if (status.status === "ready") {
+              fetch("/get_integration")
+                .then((response) => response.json())
+                .then((data) => {
+                  const integration = data.integration;
+                  console.log("integration: ", integration);
+                  Object.keys(integration).forEach((uid, index) => {
+                    // Create a tab button
+                    const tabButton = document.createElement("button");
+                    tabButton.className = "tablinks";
+                    tabButton.textContent = `Image ${uid}`;
+                    tabButton.onclick = function (event) {
+                      openIntegrationTab(event, `integration-tab-${uid}`);
+                    };
+                    tabsDiv.appendChild(tabButton);
 
-          Object.keys(integration).forEach((uid, index) => {
-            // Create a tab button
-            const tabButton = document.createElement("button");
-            tabButton.className = "tablinks";
-            tabButton.textContent = `Image ${uid}`;
-            tabButton.onclick = function (event) {
-              openIntegrationTab(event, `integration-tab-${uid}`);
-            };
-            tabsDiv.appendChild(tabButton);
+                    // Create a tab content div
+                    const tabContent = document.createElement("div");
+                    tabContent.id = `integration-tab-${uid}`;
+                    tabContent.className = "tab-content";
+                    tabContentsDiv.appendChild(tabContent);
 
-            // Create a tab content div
-            const tabContent = document.createElement("div");
-            tabContent.id = `integration-tab-${uid}`;
-            tabContent.className = "tab-content";
-            tabContentsDiv.appendChild(tabContent);
+                    // Create a container for the resolution plot
+                    const resPlotDiv = document.createElement("div");
+                    resPlotDiv.id = `integration-res-plot-${uid}`;
+                    tabContent.appendChild(resPlotDiv);
 
-            // Create a container for the resolution plot
-            const resPlotDiv = document.createElement("div");
-            resPlotDiv.id = `integration-res-plot-${uid}`;
-            tabContent.appendChild(resPlotDiv);
+                    // Render the Plotly Figure against resolution in the tab content
+                    const fig_res = integration[uid].fig_res.data;
+                    const fig_res_layout = integration[uid].fig_res.layout;
+                    console.log(
+                      `Rendering integration for Fig_res UID ${uid}`,
+                      fig_res,
+                      fig_res_layout
+                    ); // Debug
+                    Plotly.newPlot(resPlotDiv.id, fig_res, fig_res_layout);
 
-            // Render the Plotly Figure against resolution in the tab content
-            const fig_res = integration[uid].fig_res.data;
-            const fig_res_layout = integration[uid].fig_res.layout;
-            console.log(
-              `Rendering integration for Fig_res UID ${uid}`,
-              fig_res,
-              fig_res_layout
-            ); // Debug
-            Plotly.newPlot(resPlotDiv.id, fig_res, fig_res_layout);
+                    // Create a container for the image plot
+                    const imgPlotDiv = document.createElement("div");
+                    imgPlotDiv.id = `integration-img-plot-${uid}`;
+                    tabContent.appendChild(imgPlotDiv);
 
-            // Create a container for the image plot
-            const imgPlotDiv = document.createElement("div");
-            imgPlotDiv.id = `integration-img-plot-${uid}`;
-            tabContent.appendChild(imgPlotDiv);
+                    // Render the Plotly Figure against image in the tab content
+                    const fig_img = integration[uid].fig_img.data;
+                    const fig_img_layout = integration[uid].fig_img.layout;
+                    console.log(
+                      `Rendering integration for Fig_img UID ${uid}`,
+                      fig_img,
+                      fig_img_layout
+                    ); // Debug
+                    Plotly.newPlot(imgPlotDiv.id, fig_img, fig_img_layout);
 
-            // Render the Plotly Figure against image in the tab content
-            const fig_img = integration[uid].fig_img.data;
-            const fig_img_layout = integration[uid].fig_img.layout;
-            console.log(
-              `Rendering integration for Fig_img UID ${uid}`,
-              fig_img,
-              fig_img_layout
-            ); // Debug
-            Plotly.newPlot(imgPlotDiv.id, fig_img, fig_img_layout);
-
-            // Activate the first tab by default
-            if (index === 0) {
-              tabButton.classList.add("active");
-              tabContent.classList.add("active");
-            }
+                    // Activate the first tab by default
+                    if (index === 0) {
+                      tabButton.classList.add("active");
+                      tabContent.classList.add("active");
+                    }
+                  });
+                })
+                .catch((error) => {
+                    console.error("Error fetching integration:", error);
+                });            }
           });
-        }).fail(function (jqxhr, textStatus, error) {
-          console.error("Error fetching histograms:", textStatus, error);
-        });
-      }
-      function openIntegrationTab(event, tabName) {
-        // Prevent the default behavior
-        event.preventDefault();
-
-        // Hide all spotfinding tab contents and deactivate all integration tabs
-        const tabContents = document.getElementById(
-          "integration-tab-contents"
-        ).children;
-        const tabLinks = document.getElementById("integration-tabs").children;
-        for (let i = 0; i < tabContents.length; i++) {
-          tabContents[i].classList.remove("active");
-        }
-        for (let i = 0; i < tabLinks.length; i++) {
-          tabLinks[i].classList.remove("active");
-        }
-
-        // Show the selected tab content and activate the tab
-        document.getElementById(tabName).classList.add("active");
-        event.currentTarget.classList.add("active");
       }
 
-      // Example: Update statuses dynamically
-        function checkStatuses() {
-        // Simulate fetching statuses from the server
-        const statuses = {
-            binning: "ready",
-            instrumentview: "pending",
-            spotfinding: "error",
-            indexing: "ready",
-            refinement: "pending",
-            integration: "ready",
-        };
-
-        // Update each tab's status
-        Object.keys(statuses).forEach((tabId) => {
-            updateTabStatus(tabId, statuses[tabId]);
-        });
-        }
-
-        // Call the function to update statuses
-        checkStatuses();
+      // Call the function to update statuses
+      startStatusStream();
     </script>
   </body>
 </html>
