@@ -6,7 +6,7 @@ import json
 
 from nmx_workflow.config import INTERIM_DATA_DIR
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 
 # Simulated data
 data = []

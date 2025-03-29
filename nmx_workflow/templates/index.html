@@ -6,19 +6,11 @@
     <title>Spotfinding and Other Processes</title>
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
-      integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA="
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"
-      crossorigin="anonymous"
-    ></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
+    <script src="/static/uglymol.js"></script>
 
     <style>
       body {
@@ -106,6 +98,67 @@
         margin-right: 8px;
         background-color: gray; /* Default color */
       }
+  #spotfinding-uglymol-container {
+    position: relative; /* Ensure the container is positioned relative for child positioning */
+    width: 100%;
+    height: 500px;
+    overflow: hidden; /* Prevent content overflow */
+  }
+  #spotfinding-uglymol-container {
+    position: relative; /* Ensure the container is positioned relative for child positioning */
+    width: 100%;
+    height: 800px;
+    overflow: hidden; /* Prevent content overflow */
+  }
+
+  #hud {
+    position: absolute; /* Make the HUD float above the container */
+    top: 0;
+    left: 0;
+    width: 100%; /* Make it span the full width of the viewport */
+    background-color: #f9f9f9; /* Light background for visibility */
+    padding: 10px;
+    border-bottom: 1px solid #ccc; /* Add a border to separate it visually */
+    font-size: 14px;
+    z-index: 1000; /* Ensure it stays above other content */
+  }
+
+  #uglymol-viewer {
+    position: absolute;
+    top: 40px; /* Adjust this value to match the height of the HUD */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 80px); /* Subtract the height of the HUD and Help */
+  }
+
+   #help {
+     display: none;
+     font-size: 12px;
+     color: #eee;
+     background-color: rgba(0,0,0,0.7);
+     position: absolute;
+     left: 20px;
+     top: 50%;
+     transform: translateY(-50%);
+     cursor: default;
+     padding: 5px;
+     border-radius: 5px;
+     z-index: 9;
+     white-space: pre-line;
+   }
+     #inset {
+     width: 200px;
+     height: 200px;
+     background-color: #888;
+     position: absolute;
+     right: 0;
+     bottom: 0;
+     z-index: 2;
+     display: none;
+   }
+   a { color: #59C; }
+
+
     </style>
   </head>
   <body>
@@ -190,12 +243,43 @@
       </div>
     </div>
 
-    <!-- Spotfinding Tab Content -->
-    <div id="spotfinding" class="tab-content">
-      <h2>Spotfinding Histograms</h2>
-      <div id="spotfinding-tabs-container">
-        <div class="tab" id="spotfinding-tabs"></div>
-        <div id="spotfinding-tab-contents"></div>
+      <!-- Spotfinding Tab Content -->
+      <div id="spotfinding" class="tab-content">
+        <h2>Spotfinding</h2>
+        <div id="spotfinding-subtabs-container">
+          <!-- Subtab Buttons -->
+          <div class="tab" id="spotfinding-subtabs">
+            <button class="tablinks" id="spotfinding-histograms-tab" onclick="openSpotfindingSubtab(event, 'spotfinding-histograms')">
+              Histograms
+            </button>
+            <button class="tablinks" id="spotfinding-uglymol-tab" onclick="openSpotfindingSubtab(event, 'spotfinding-uglymol')">
+              Reciprocal Space Viewer
+          </button>
+        </div>
+        <!-- Subtab Contents -->
+        <div id="spotfinding-subtab-contents">
+          <!-- Histograms Subtab Content -->
+          <div id="spotfinding-histograms" class="tab-content">
+            <h3>Spotfinding Histograms</h3>
+            <div id="spotfinding-tabs-container">
+              <div class="tab" id="spotfinding-tabs"></div>
+              <div id="spotfinding-tab-contents"></div>
+            </div>
+          </div>
+          <!-- UglyMol Subtab Content -->
+          <div id="spotfinding-uglymol" class="tab-content">
+            <h3>UglyMol RLP Viewer</h3>
+            <p> use 'V' to cycle through datasets.</p>
+            <div id="spotfinding-uglymol-container">
+              <header id="hud" onmousedown="event.stopPropagation();" ondblclick="event.stopPropagation();">
+                This is reciprocal UM. <a href="#" onclick="V.toggle_help(); return false;">H shows help.</a>
+              </header>
+              <div id="uglymol-viewer"></div>
+              <footer id="help"></footer>
+            </div>          Loading UglyMol...
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -288,11 +372,12 @@
         document.getElementById(tabName).classList.add("active");
         event.currentTarget.classList.add("active");
 
-        // If the "Spotfinding" tab is clicked, activate the first histogram tab
+        // If the "Spotfinding" tab is clicked, activate the first subtab
         if (tabName === "spotfinding") {
+          openSpotfindingSubtab(event, "spotfinding-histograms");
           renderSpotfindingTabs();
         }
-        // Start fetching the binning log if the "Binning" tab is clicked
+              // Start fetching the binning log if the "Binning" tab is clicked
         if (tabName === "binning") {
           fetchBinningLog();
         }
@@ -557,6 +642,56 @@
         event.currentTarget.classList.add("active");
       }
 
+      function openSpotfindingSubtab(event, subtabName) {
+        // Prevent the default behavior
+        event.preventDefault();
+
+        // Hide all subtab contents and deactivate all subtab buttons
+        const subtabContents = document.getElementById("spotfinding-subtab-contents").children;
+        const subtabLinks = document.getElementById("spotfinding-subtabs").children;
+        for (let i = 0; i < subtabContents.length; i++) {
+          subtabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < subtabLinks.length; i++) {
+          subtabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected subtab content and activate the subtab button
+        document.getElementById(subtabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+
+        // Load UglyMol when the UglyMol subtab is opened
+        if (subtabName === "spotfinding-uglymol") {
+          loadSpotfindingUglyMol();
+        }
+      }      
+
+      function loadSpotfindingUglyMol() {
+        const container = document.getElementById("spotfinding-uglymol-container");
+
+        // Clear the container
+        container.innerHTML = `
+        <header id="hud" onmousedown="event.stopPropagation();" ondblclick="event.stopPropagation();">
+          This is reciprocal UM. <a href="#" onclick="V.toggle_help(); return false;">H shows help.</a>
+        </header>
+        <div id="inset"></div>
+        <footer id="help"></footer>
+      `;
+
+        // Initialize the UglyMol viewer
+        const viewer = new UM.ReciprocalViewer({
+          viewer: "spotfinding-uglymol-container",
+          hud: "hud",
+          help: "help",
+        });
+        viewer.toggle_help();
+        viewer.change_point_size(2)
+        // Load molecular data (replace with your actual file URLs)
+        const rlpUrl = "/static/data/rlp.json"; // Replace with the actual file URL
+        viewer.load_data(rlpUrl);
+        
+      }
+
       function renderSpotfindingTabs() {
         const tabsDiv = document.getElementById("spotfinding-tabs");
         const tabContentsDiv = document.getElementById(
@@ -579,7 +714,7 @@
                 .then((response) => response.json())
                 .then((data) => {
                   const histograms = data.histograms;
-
+                  console.log("spotfinding data:", histograms);
                   Object.keys(histograms).forEach((uid, index) => {
                     // Create a tab button
                     const tabButton = document.createElement("button");
@@ -613,20 +748,17 @@
                     }
                   });
                 })
-                .fail(function (jqxhr, textStatus, error) {
-                  console.error(
-                    "Error fetching histograms:",
-                    textStatus,
-                    error
-                  );
-                });
+                .catch((error) => {
+                  console.error("Error loading spotfinding results:", error);
+                }
+              );
             } else {
-              container.innerHTML = "<p>No indexing results available.</p>";
+              container.innerHTML = "<p>No spotfinding results available.</p>";
             }
           })
           .catch((error) => {
-            console.error("Error fetching indexing results:", error);
-            container.innerHTML = "<p>Error loading indexing results.</p>";
+            console.error("Error fetching spotfinding results:", error);
+            container.innerHTML = "<p>Error loading spotfinding results.</p>";
           });
       }
 
