@@ -386,7 +386,7 @@
           fetchIndexingResults();
         }
         if (tabName === "refinement") {
-          fetchRefineResults();
+          loadRefinementImages();
         }
         // If the "Spotfinding" tab is clicked, activate the first histogram tab
         if (tabName === "instrumentview") {
@@ -396,6 +396,11 @@
         if (tabName === "integration") {
           loadIntegration();
         }
+          // Load the images when the Scaling tab is opened
+        if (tabName === "scaling") {
+          loadScalingImages();
+        }
+
       }
 
       function loadInstrumentView() {
@@ -515,77 +520,38 @@
           });
       }
 
-      function fetchRefineResults() {
+      function loadRefinementImages() {
         const container = document.getElementById("refinement-table-container");
-        // Fetch the indexing results from the server
-        fetch("/refine_status")
-          .then((response) => response.json())
-          .then((status) => {
-            if (status.status === "ready") {
-              fetch("/get_refine")
-                .then((response) => response.json())
-                .then((data) => {
-                  // Clear the loading message
-                  container.innerHTML = "";
 
-                  console.log("Refine Summary Data:", data);
+        // Clear the container
+        container.innerHTML = "";
 
-                  // Iterate over each refinement cycle
-                  Object.keys(data.refine_results).forEach((cycleId) => {
-                    const cycleData = data.refine_results[cycleId];
+        // Define the image URLs and their corresponding titles
+        const images = [
+          { url: "/data/interim/correlations_wavelength.png", title: "Correlations Wavelength" },
+          { url: "/data/interim/correlations_X.png", title: "Correlations X" },
+          { url: "/data/interim/correlations_Y.png", title: "Correlations Y" },
+        ];
 
-                    // Create a title for the cycle
-                    const title = document.createElement("h3");
-                    title.textContent = `Refinement Cycle ${cycleId}`;
-                    container.appendChild(title);
+        // Create and append image elements with titles
+        images.forEach(({ url, title }) => {
+          // Create a title element
+          const titleElement = document.createElement("h3");
+          titleElement.textContent = title;
+          titleElement.style.marginBottom = "5px"; // Add spacing below the title
 
-                    // Create a table for the cycle
-                    const table = document.createElement("table");
-                    table.style.borderCollapse = "collapse";
-                    table.style.width = "30%"; // Match the width of other tables
-                    table.style.marginLeft = "0"; // Align the table to the left
+          // Create an image element
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = title;
+          img.style.width = "50%"; // Adjust the width as needed
+          img.style.marginBottom = "20px"; // Add spacing below the image
 
-                    // Create the table header
-                    const headerRow = document.createElement("tr");
-                    ["Item", "Overall", "Low", "High"].forEach((headerText) => {
-                      const th = document.createElement("th");
-                      th.textContent = headerText;
-                      th.style.border = "1px solid #ccc";
-                      th.style.padding = "8px";
-                      th.style.textAlign = "left";
-                      th.style.backgroundColor = "#f2f2f2";
-                      headerRow.appendChild(th);
-                    });
-                    table.appendChild(headerRow);
-
-                    // Populate table rows
-                    cycleData.forEach((row) => {
-                      const tr = document.createElement("tr");
-                      ["item", "overall", "low", "high"].forEach((key) => {
-                        const td = document.createElement("td");
-                        td.textContent = row[key];
-                        td.style.border = "1px solid #ccc";
-                        td.style.padding = "8px";
-                        td.style.textAlign = "left";
-                        tr.appendChild(td);
-                      });
-                      table.appendChild(tr);
-                    });
-
-                    // Add the table to the container
-                    container.appendChild(table);
-                  });
-                });
-            } else {
-              container.innerHTML = "<p>No indexing results available.</p>";
-            }
-          })
-          .catch((error) => {
-            console.error("Error fetching indexing results:", error);
-            container.innerHTML = "<p>Error loading indexing results.</p>";
-          });
+          // Append the title and image to the container
+          container.appendChild(titleElement);
+          container.appendChild(img);
+        });
       }
-
       let binningLogEventSource = null; // Keep track of the EventSource instance
 
       function fetchBinningLog() {
@@ -620,6 +586,37 @@
           binningLogEventSource = null; // Reset the EventSource instance
         };
       }
+        function loadScalingImages() {
+          const container = document.getElementById("scaling-tab-contents");
+
+          // Clear the container
+          container.innerHTML = "";
+
+          // Define the image URLs and their corresponding titles
+          const images = [
+            { url: "/data/interim/SigIvsres.png", title: "I/sigI vs resolution" },
+            { url: "/data/interim/fitting.png", title: "Chebyshev Wavelength Scaling" },
+          ];
+
+          // Create and append image elements with titles
+          images.forEach(({ url, title }) => {
+            // Create a title element
+            const titleElement = document.createElement("h3");
+            titleElement.textContent = title;
+            titleElement.style.marginBottom = "5px"; // Add spacing below the title
+
+            // Create an image element
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = title;
+            img.style.width = "50%"; // Adjust the width as needed
+            img.style.marginBottom = "20px"; // Add spacing below the image
+
+            // Append the title and image to the container
+            container.appendChild(titleElement);
+            container.appendChild(img);
+          });
+        }
 
       function openSpotfindingTab(event, tabName) {
         // Prevent the default behavior
@@ -687,7 +684,7 @@
         viewer.toggle_help();
         viewer.change_point_size(2)
         // Load molecular data (replace with your actual file URLs)
-        const rlpUrl = "/static/data/rlp.json"; // Replace with the actual file URL
+        const rlpUrl = "/data/interim/rlp.json"; // Replace with the actual file URL
         viewer.load_data(rlpUrl);
         
       }

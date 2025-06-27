@@ -153,7 +153,7 @@ def _get_unpacked(stream_or_path: Union[str, IO, bytes, os.PathLike]):
 
     if is_fspathlike:
         with open(path, "rb") as f:
-            un = msgpack.Unpacker(f, strict_map_key=False)
+            un = msgpack.Unpacker(f, strict_map_key=False, max_buffer_size=10**9)
             return un.unpack()
     else:
         un = msgpack.Unpacker(stream_or_path, strict_map_key=False)

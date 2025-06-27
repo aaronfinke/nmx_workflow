@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify, stream_with_context
+from flask import Flask, render_template, Response, jsonify, stream_with_context, send_from_directory
 from enum import Enum
 import os
 import time
@@ -177,6 +177,11 @@ def get_spotfinding():
         except:
             return "No spotfinding results found", 404
 
+@app.route("/data/interim/<path:filename>")
+def serve_interim_data(filename):
+    return send_from_directory(
+        "/Users/aaronfinke/nmx_workflow/nmx_workflow/data/interim", filename
+    )
 
 @app.route("/integration_status")
 def integration_status():
