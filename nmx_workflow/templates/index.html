@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spotfinding and Other Processes</title>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="/static/uglymol.js"></script>
+
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+
+      /* Tab styles */
+      .tab {
+        overflow: hidden;
+        border: 1px solid #ccc;
+        background-color: #f1f1f1;
+      }
+
+      .tab button {
+        background-color: inherit;
+        float: left;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        transition: 0.3s;
+        font-family: "Roboto", sans-serif; /* Apply the font to tab buttons */
+      }
+
+      .tab button:hover {
+        background-color: #ddd;
+      }
+
+      .tab button.active {
+        background-color: #ccc;
+      }
+
+      .tab-content {
+        display: none;
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        border-top: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+      /* Table styles */
+      table {
+        width: 60%; /* Set the table width to 60% of its container */
+        margin-left: 0; /* Align table left */
+        border-collapse: collapse; /* Remove spacing between table cells */
+      }
+
+      th,
+      td {
+        border: 1px solid #ccc; /* Add a border to table cells */
+        padding: 8px; /* Add padding inside cells */
+        text-align: left; /* Align text to the left */
+      }
+
+      th {
+        background-color: #f2f2f2; /* Add a light background color to header cells */
+        font-weight: bold; /* Make header text bold */
+      }
+
+      tr:nth-child(even) {
+        background-color: #f9f9f9; /* Add a light background color to even rows */
+      }
+
+      tr:hover {
+        background-color: #e6f7ff; /* Highlight rows on hover */
+      }
+      h1,
+      h2 {
+        font-weight: 500; /* Use medium weight for headings */
+      }
+      /* Refinement table styles */
+      #refinement-table-container table {
+        font-size: 12px; /* Set a smaller font size for refinement tables */
+      }
+      .status-circle {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background-color: gray; /* Default color */
+      }
+  #spotfinding-uglymol-container {
+    position: relative; /* Ensure the container is positioned relative for child positioning */
+    width: 100%;
+    height: 500px;
+    overflow: hidden; /* Prevent content overflow */
+  }
+  #spotfinding-uglymol-container {
+    position: relative; /* Ensure the container is positioned relative for child positioning */
+    width: 100%;
+    height: 800px;
+    overflow: hidden; /* Prevent content overflow */
+  }
+
+  #hud {
+    position: absolute; /* Make the HUD float above the container */
+    top: 0;
+    left: 0;
+    width: 100%; /* Make it span the full width of the viewport */
+    background-color: #f9f9f9; /* Light background for visibility */
+    padding: 10px;
+    border-bottom: 1px solid #ccc; /* Add a border to separate it visually */
+    font-size: 14px;
+    z-index: 1000; /* Ensure it stays above other content */
+  }
+
+  #uglymol-viewer {
+    position: absolute;
+    top: 40px; /* Adjust this value to match the height of the HUD */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 80px); /* Subtract the height of the HUD and Help */
+  }
+
+   #help {
+     display: none;
+     font-size: 12px;
+     color: #eee;
+     background-color: rgba(0,0,0,0.7);
+     position: absolute;
+     left: 20px;
+     top: 50%;
+     transform: translateY(-50%);
+     cursor: default;
+     padding: 5px;
+     border-radius: 5px;
+     z-index: 9;
+     white-space: pre-line;
+   }
+     #inset {
+     width: 200px;
+     height: 200px;
+     background-color: #888;
+     position: absolute;
+     right: 0;
+     bottom: 0;
+     z-index: 2;
+     display: none;
+   }
+   a { color: #59C; }
+
+
+    </style>
+  </head>
+  <body>
+    <h1>Results for Sample X</h1>
+    <div class="tab">
+      <button
+        class="tablinks"
+        id="binning-tab"
+        onclick="openTab(event, 'binning')"
+      >
+        <span class="status-circle" id="binning-status"></span> Binning
+      </button>
+      <button
+        class="tablinks"
+        id="instrumentview-tab"
+        onclick="openTab(event, 'instrumentview')"
+      >
+        <span class="status-circle" id="instrumentview-status"></span>
+        Instrument View
+      </button>
+      <button
+        class="tablinks"
+        id="spotfinding-tab"
+        onclick="openTab(event, 'spotfinding')"
+      >
+        <span class="status-circle" id="spotfinding-status"></span> Spotfinding
+      </button>
+      <button
+        class="tablinks"
+        id="indexing-tab"
+        onclick="openTab(event, 'indexing')"
+      >
+        <span class="status-circle" id="indexing-status"></span> Indexing
+      </button>
+      <button
+        class="tablinks"
+        id="refinement-tab"
+        onclick="openTab(event, 'refinement')"
+      >
+        <span class="status-circle" id="refinement-status"></span> Refinement
+      </button>
+      <button
+        class="tablinks"
+        id="integration-tab"
+        onclick="openTab(event, 'integration')"
+      >
+        <span class="status-circle" id="integration-status"></span> Integration
+      </button>
+      <button
+        class="tablinks"
+        id="scaling-tab"
+        onclick="openTab(event, 'scaling')"
+      >
+        <span class="status-circle" id="scaling-status"></span> Scaling
+      </button>
+    </div>
+    <!-- Binning Tab Content -->
+    <div id="binning" class="tab-content">
+      <h2>Binning Log</h2>
+      <div
+        id="binning-log"
+        style="
+          white-space: pre-wrap;
+          background-color: #f9f9f9;
+          padding: 10px;
+          border: 1px solid #ccc;
+          height: 400px;
+          overflow-y: scroll;
+          font-family: monospace;
+        "
+      >
+        Loading log...
+      </div>
+    </div>
+    <!-- InstrumentView Tab Content -->
+    <div id="instrumentview" class="tab-content">
+      <h2>Instrument View</h2>
+      <p>Use mouse/scroll wheel to rotate/zoom.</p>
+      <p>Ctrl+click (Mac ⌘+click) and drag to pan.</p>
+      <div id="instrumentview-container">
+        <p>Loading Instrument View...</p>
+      </div>
+    </div>
+
+      <!-- Spotfinding Tab Content -->
+      <div id="spotfinding" class="tab-content">
+        <h2>Spotfinding</h2>
+        <div id="spotfinding-subtabs-container">
+          <!-- Subtab Buttons -->
+          <div class="tab" id="spotfinding-subtabs">
+            <button class="tablinks" id="spotfinding-histograms-tab" onclick="openSpotfindingSubtab(event, 'spotfinding-histograms')">
+              Histograms
+            </button>
+            <button class="tablinks" id="spotfinding-uglymol-tab" onclick="openSpotfindingSubtab(event, 'spotfinding-uglymol')">
+              Reciprocal Space Viewer
+          </button>
+        </div>
+        <!-- Subtab Contents -->
+        <div id="spotfinding-subtab-contents">
+          <!-- Histograms Subtab Content -->
+          <div id="spotfinding-histograms" class="tab-content">
+            <h3>Spotfinding Histograms</h3>
+            <div id="spotfinding-tabs-container">
+              <div class="tab" id="spotfinding-tabs"></div>
+              <div id="spotfinding-tab-contents"></div>
+            </div>
+          </div>
+          <!-- UglyMol Subtab Content -->
+          <div id="spotfinding-uglymol" class="tab-content">
+            <h3>UglyMol RLP Viewer</h3>
+            <p> use 'V' to cycle through datasets.</p>
+            <div id="spotfinding-uglymol-container">
+              <header id="hud" onmousedown="event.stopPropagation();" ondblclick="event.stopPropagation();">
+                This is reciprocal UM. <a href="#" onclick="V.toggle_help(); return false;">H shows help.</a>
+              </header>
+              <div id="uglymol-viewer"></div>
+              <footer id="help"></footer>
+            </div>          Loading UglyMol...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indexing Tab Content -->
+    <div id="indexing" class="tab-content">
+      <h2>Indexing Results</h2>
+      <div id="indexing-table-container">
+        <p>Loading indexing results...</p>
+      </div>
+    </div>
+
+    <!-- Refinement Tab Content -->
+    <div id="refinement" class="tab-content">
+      <h2>Refinement Results</h2>
+      <div id="refinement-table-container">
+        <p>Refinement results will be displayed here.</p>
+      </div>
+    </div>
+
+    <!-- Integration Tab Content -->
+    <div id="integration" class="tab-content">
+      <h2>Integration Results</h2>
+      <div id="integration-tabs-container">
+        <div class="tab" id="integration-tabs"></div>
+        <div id="integration-tab-contents"></div>
+      </div>
+    </div>
+
+    <!-- Scaling Tab Content -->
+    <div id="scaling" class="tab-content">
+      <h2>Scaling Results</h2>
+      <div id="scaling-tabs-container">
+        <div class="tab" id="scaling-tabs"></div>
+        <div id="scaling-tab-contents"></div>
+      </div>
+    </div>
+
+    <script>
+        function startStatusStream() {
+
+            const eventSource = new EventSource('/stream_status');
+
+            eventSource.onmessage = function (event) {
+            const statuses = JSON.parse(event.data);
+            console.log("Received statuses:", statuses); // Debugging log
+
+            // Update each tab's status
+            Object.keys(statuses).forEach((tabId) => {
+                updateTabStatus(tabId, statuses[tabId]);
+            });
+            };
+
+            eventSource.onerror = function () {
+            console.error("Error receiving status updates.");
+            eventSource.close(); // Close the connection on error
+            };
+        }
+
+      function updateTabStatus(tabId, status) {
+        const statusCircle = document.getElementById(`${tabId}-status`);
+        if (!statusCircle) return;
+
+        // Set the color based on the status
+        if (status === "ready") {
+          statusCircle.style.backgroundColor = "green";
+        } else if (status === "pending") {
+          statusCircle.style.backgroundColor = "orange";
+        } else if (status === "error") {
+          statusCircle.style.backgroundColor = "red";
+        } else {
+          statusCircle.style.backgroundColor = "gray"; // Default color
+        }
+      }
+
+      function openTab(event, tabName) {
+        // Prevent the default behavior (e.g., scrolling to the top)
+        event.preventDefault();
+
+        // Hide all tab contents and deactivate all tabs
+        const tabContents = document.getElementsByClassName("tab-content");
+        const tabLinks = document.getElementsByClassName("tablinks");
+        for (let i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < tabLinks.length; i++) {
+          tabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected tab content and activate the tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+
+        // If the "Spotfinding" tab is clicked, activate the first subtab
+        if (tabName === "spotfinding") {
+          openSpotfindingSubtab(event, "spotfinding-histograms");
+          renderSpotfindingTabs();
+        }
+              // Start fetching the binning log if the "Binning" tab is clicked
+        if (tabName === "binning") {
+          fetchBinningLog();
+        }
+        // Fetch indexing results if the "Indexing" tab is clicked
+        if (tabName === "indexing") {
+          fetchIndexingResults();
+        }
+        if (tabName === "refinement") {
+          loadRefinementImages();
+        }
+        // If the "Spotfinding" tab is clicked, activate the first histogram tab
+        if (tabName === "instrumentview") {
+          loadInstrumentView();
+        }
+        // If the "Integration" tab is clicked, activate the first histogram tab
+        if (tabName === "integration") {
+          loadIntegration();
+        }
+          // Load the images when the Scaling tab is opened
+        if (tabName === "scaling") {
+          loadScalingImages();
+        }
+
+      }
+
+      function loadInstrumentView() {
+        const container = document.getElementById("instrumentview-container");
+
+        // Check if the instrument view is ready
+        fetch("/instrumentview_status")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status === "ready") {
+              container.innerHTML = "";
+
+              // If ready, load the view.html content
+              fetch("/get_instrumentview")
+                .then((response) => {
+                  if (response.ok) {
+                    return response.text();
+                  } else {
+                    throw new Error("Instrument View is not ready yet.");
+                  }
+                })
+                .then((html) => {
+                  console.log("Instrument View HTML:", html); // Debugging log
+                  container.innerHTML = html;
+
+                  // Execute scripts in the loaded HTML
+                  const scripts = container.querySelectorAll("script");
+                  scripts.forEach((script) => {
+                    const newScript = document.createElement("script");
+                    if (script.src) {
+                      newScript.src = script.src; // Copy external script src
+                    } else {
+                      newScript.textContent = script.textContent; // Copy inline script content
+                    }
+                    document.body.appendChild(newScript); // Append to the document to execute
+                  });
+                })
+                .catch((error) => {
+                  console.error("Error loading Instrument View:", error);
+                  container.innerHTML = "<p>Error loading Instrument View.</p>";
+                });
+            } else {
+              // If not ready, display a message
+              container.innerHTML =
+                "<p>Instrument View is not ready yet. Please wait...</p>";
+              setTimeout(loadInstrumentView, 5000); // Retry after 5 seconds
+            }
+          })
+          .catch((error) => {
+            console.error("Error checking Instrument View readiness:", error);
+            container.innerHTML =
+              "<p>Error checking Instrument View readiness.</p>";
+          });
+      }
+
+      function fetchIndexingResults() {
+        const container = document.getElementById("indexing-table-container");
+        // Fetch the indexing results from the server
+        fetch("/indexing_status")
+          .then((response) => response.json())
+          .then((status) => {
+            if (status.status === "ready") {
+              fetch("/get_indexing")
+                .then((response) => response.json())
+                .then((data) => {
+                  // Clear the loading message
+                  container.innerHTML = "";
+                  console.log("Data: ");
+                  // Create a table
+                  const table = document.createElement("table");
+
+                  // Create the table header
+                  const headerRow = document.createElement("tr");
+                  [
+                    "Image ID",
+                    "Unit Cell",
+                    "Space Group",
+                    "# Indexed",
+                    "# Unindexed",
+                    "% Indexed",
+                  ].forEach((headerText) => {
+                    const th = document.createElement("th");
+                    th.textContent = headerText;
+                    headerRow.appendChild(th);
+                  });
+                  table.appendChild(headerRow);
+
+                  // Populate the table with data
+                  Object.keys(data.indexing_results).forEach((imageId) => {
+                    const row = document.createElement("tr");
+                    const rowData = [
+                      imageId,
+                      data.indexing_results[imageId]["Unit cell"],
+                      data.indexing_results[imageId]["Space group"],
+                      data.indexing_results[imageId]["# indexed"],
+                      data.indexing_results[imageId]["# unindexed"],
+                      `${data.indexing_results[imageId]["% indexed"]}%`,
+                    ];
+                    rowData.forEach((cellData) => {
+                      const td = document.createElement("td");
+                      td.textContent = cellData;
+                      row.appendChild(td);
+                    });
+                    table.appendChild(row);
+                  });
+
+                  // Add the table to the container
+                  container.appendChild(table);
+                });
+            } else {
+              container.innerHTML = "<p>No indexing results available.</p>";
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching indexing results:", error);
+            container.innerHTML = "<p>Error loading indexing results.</p>";
+          });
+      }
+
+      function loadRefinementImages() {
+        const container = document.getElementById("refinement-table-container");
+
+        // Clear the container
+        container.innerHTML = "";
+
+        // Define the image URLs and their corresponding titles
+        const images = [
+          { url: "/data/interim/correlations_wavelength.png", title: "Correlations Wavelength" },
+          { url: "/data/interim/correlations_X.png", title: "Correlations X" },
+          { url: "/data/interim/correlations_Y.png", title: "Correlations Y" },
+        ];
+
+        // Create and append image elements with titles
+        images.forEach(({ url, title }) => {
+          // Create a title element
+          const titleElement = document.createElement("h3");
+          titleElement.textContent = title;
+          titleElement.style.marginBottom = "5px"; // Add spacing below the title
+
+          // Create an image element
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = title;
+          img.style.width = "50%"; // Adjust the width as needed
+          img.style.marginBottom = "20px"; // Add spacing below the image
+
+          // Append the title and image to the container
+          container.appendChild(titleElement);
+          container.appendChild(img);
+        });
+      }
+      let binningLogEventSource = null; // Keep track of the EventSource instance
+
+      function fetchBinningLog() {
+        const logDiv = document.getElementById("binning-log");
+
+        // If an EventSource already exists, do nothing
+        if (binningLogEventSource) {
+          console.log("Binning log stream already active."); // Debug
+          return;
+        }
+
+        console.log("Starting binning log stream..."); // Debug
+        binningLogEventSource = new EventSource("/stream_binning_log");
+
+        binningLogEventSource.onmessage = function (event) {
+          console.log("Received log data:", event.data); // Debug
+          logDiv.textContent += event.data + "\n";
+          logDiv.scrollTop = logDiv.scrollHeight; // Auto-scroll to the bottom
+
+          // Stop streaming if the completion message is received
+          if (event.data.includes("Binning complete")) {
+            console.log("Binning process complete. Closing stream."); // Debug
+            binningLogEventSource.close();
+            binningLogEventSource = null; // Reset the EventSource instance
+          }
+        };
+
+        binningLogEventSource.onerror = function () {
+          console.error("Error fetching log stream."); // Debug
+          logDiv.textContent += "\n[Error: Unable to fetch log stream]\n";
+          binningLogEventSource.close();
+          binningLogEventSource = null; // Reset the EventSource instance
+        };
+      }
+        function loadScalingImages() {
+          const container = document.getElementById("scaling-tab-contents");
+
+          // Clear the container
+          container.innerHTML = "";
+
+          // Define the image URLs and their corresponding titles
+          const images = [
+            { url: "/data/interim/SigIvsres.png", title: "I/sigI vs resolution" },
+            { url: "/data/interim/fitting.png", title: "Chebyshev Wavelength Scaling" },
+          ];
+
+          // Create and append image elements with titles
+          images.forEach(({ url, title }) => {
+            // Create a title element
+            const titleElement = document.createElement("h3");
+            titleElement.textContent = title;
+            titleElement.style.marginBottom = "5px"; // Add spacing below the title
+
+            // Create an image element
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = title;
+            img.style.width = "50%"; // Adjust the width as needed
+            img.style.marginBottom = "20px"; // Add spacing below the image
+
+            // Append the title and image to the container
+            container.appendChild(titleElement);
+            container.appendChild(img);
+          });
+        }
+
+      function openSpotfindingTab(event, tabName) {
+        // Prevent the default behavior
+        event.preventDefault();
+
+        // Hide all spotfinding tab contents and deactivate all spotfinding tabs
+        const tabContents = document.getElementById(
+          "spotfinding-tab-contents"
+        ).children;
+        const tabLinks = document.getElementById("spotfinding-tabs").children;
+        for (let i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < tabLinks.length; i++) {
+          tabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected tab content and activate the tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+
+      function openSpotfindingSubtab(event, subtabName) {
+        // Prevent the default behavior
+        event.preventDefault();
+
+        // Hide all subtab contents and deactivate all subtab buttons
+        const subtabContents = document.getElementById("spotfinding-subtab-contents").children;
+        const subtabLinks = document.getElementById("spotfinding-subtabs").children;
+        for (let i = 0; i < subtabContents.length; i++) {
+          subtabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < subtabLinks.length; i++) {
+          subtabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected subtab content and activate the subtab button
+        document.getElementById(subtabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+
+        // Load UglyMol when the UglyMol subtab is opened
+        if (subtabName === "spotfinding-uglymol") {
+          loadSpotfindingUglyMol();
+        }
+      }      
+
+      function loadSpotfindingUglyMol() {
+        const container = document.getElementById("spotfinding-uglymol-container");
+
+        // Clear the container
+        container.innerHTML = `
+        <header id="hud" onmousedown="event.stopPropagation();" ondblclick="event.stopPropagation();">
+          This is reciprocal UM. <a href="#" onclick="V.toggle_help(); return false;">H shows help.</a>
+        </header>
+        <div id="inset"></div>
+        <footer id="help"></footer>
+      `;
+
+        // Initialize the UglyMol viewer
+        const viewer = new UM.ReciprocalViewer({
+          viewer: "spotfinding-uglymol-container",
+          hud: "hud",
+          help: "help",
+        });
+        viewer.toggle_help();
+        viewer.change_point_size(2)
+        // Load molecular data (replace with your actual file URLs)
+        const rlpUrl = "/data/interim/rlp.json"; // Replace with the actual file URL
+        viewer.load_data(rlpUrl);
+        
+      }
+
+      function renderSpotfindingTabs() {
+        const tabsDiv = document.getElementById("spotfinding-tabs");
+        const tabContentsDiv = document.getElementById(
+          "spotfinding-tab-contents"
+        );
+
+        // Clear existing tabs and contents
+        tabsDiv.innerHTML = "";
+        tabContentsDiv.innerHTML = "";
+
+        const container = document.getElementById(
+          "spotfinding-table-container"
+        );
+        // Fetch the indexing results from the server
+        fetch("/spotfinding_status")
+          .then((response) => response.json())
+          .then((status) => {
+            if (status.status === "ready") {
+              fetch("/get_spotfinding")
+                .then((response) => response.json())
+                .then((data) => {
+                  const histograms = data.histograms;
+                  console.log("spotfinding data:", histograms);
+                  Object.keys(histograms).forEach((uid, index) => {
+                    // Create a tab button
+                    const tabButton = document.createElement("button");
+                    tabButton.className = "tablinks";
+                    tabButton.textContent = `Image ${uid}`;
+                    tabButton.onclick = function (event) {
+                      openSpotfindingTab(event, `spotfinding-tab-${uid}`);
+                    };
+                    tabsDiv.appendChild(tabButton);
+
+                    // Create a tab content div
+                    const tabContent = document.createElement("div");
+                    tabContent.id = `spotfinding-tab-${uid}`;
+                    tabContent.className = "tab-content";
+                    tabContentsDiv.appendChild(tabContent);
+
+                    // Render the Plotly histogram in the tab content
+                    const data = histograms[uid].data;
+                    const layout = histograms[uid].layout;
+                    console.log(
+                      `Rendering histogram for UID ${uid}`,
+                      data,
+                      layout
+                    ); // Debug
+                    Plotly.newPlot(tabContent.id, data, layout);
+
+                    // Activate the first tab by default
+                    if (index === 0) {
+                      tabButton.classList.add("active");
+                      tabContent.classList.add("active");
+                    }
+                  });
+                })
+                .catch((error) => {
+                  console.error("Error loading spotfinding results:", error);
+                }
+              );
+            } else {
+              container.innerHTML = "<p>No spotfinding results available.</p>";
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching spotfinding results:", error);
+            container.innerHTML = "<p>Error loading spotfinding results.</p>";
+          });
+      }
+
+      function openIntegrationTab(event, tabName) {
+        // Prevent the default behavior
+        event.preventDefault();
+
+        // Hide all spotfinding tab contents and deactivate all integration tabs
+        const tabContents = document.getElementById(
+          "integration-tab-contents"
+        ).children;
+        const tabLinks = document.getElementById("integration-tabs").children;
+        for (let i = 0; i < tabContents.length; i++) {
+          tabContents[i].classList.remove("active");
+        }
+        for (let i = 0; i < tabLinks.length; i++) {
+          tabLinks[i].classList.remove("active");
+        }
+
+        // Show the selected tab content and activate the tab
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+
+      function loadIntegration() {
+        const tabsDiv = document.getElementById("integration-tabs");
+        const tabContentsDiv = document.getElementById(
+          "integration-tab-contents"
+        );
+
+        // Clear existing tabs and contents
+        tabsDiv.innerHTML = "";
+        tabContentsDiv.innerHTML = "";
+
+        // Fetch the indexing results from the server
+        fetch("/integration_status")
+          .then((response) => response.json())
+          .then((status) => {
+            console.log("status: ", status);
+            if (status.status === "ready") {
+              fetch("/get_integration")
+                .then((response) => response.json())
+                .then((data) => {
+                  const integration = data.integration;
+                  console.log("integration: ", integration);
+                  Object.keys(integration).forEach((uid, index) => {
+                    // Create a tab button
+                    const tabButton = document.createElement("button");
+                    tabButton.className = "tablinks";
+                    tabButton.textContent = `Image ${uid}`;
+                    tabButton.onclick = function (event) {
+                      openIntegrationTab(event, `integration-tab-${uid}`);
+                    };
+                    tabsDiv.appendChild(tabButton);
+
+                    // Create a tab content div
+                    const tabContent = document.createElement("div");
+                    tabContent.id = `integration-tab-${uid}`;
+                    tabContent.className = "tab-content";
+                    tabContentsDiv.appendChild(tabContent);
+
+                    // Create a container for the resolution plot
+                    const resPlotDiv = document.createElement("div");
+                    resPlotDiv.id = `integration-res-plot-${uid}`;
+                    tabContent.appendChild(resPlotDiv);
+
+                    // Render the Plotly Figure against resolution in the tab content
+                    const fig_res = integration[uid].fig_res.data;
+                    const fig_res_layout = integration[uid].fig_res.layout;
+                    console.log(
+                      `Rendering integration for Fig_res UID ${uid}`,
+                      fig_res,
+                      fig_res_layout
+                    ); // Debug
+                    Plotly.newPlot(resPlotDiv.id, fig_res, fig_res_layout);
+
+                    // Create a container for the image plot
+                    const imgPlotDiv = document.createElement("div");
+                    imgPlotDiv.id = `integration-img-plot-${uid}`;
+                    tabContent.appendChild(imgPlotDiv);
+
+                    // Render the Plotly Figure against image in the tab content
+                    const fig_img = integration[uid].fig_img.data;
+                    const fig_img_layout = integration[uid].fig_img.layout;
+                    console.log(
+                      `Rendering integration for Fig_img UID ${uid}`,
+                      fig_img,
+                      fig_img_layout
+                    ); // Debug
+                    Plotly.newPlot(imgPlotDiv.id, fig_img, fig_img_layout);
+
+                    // Activate the first tab by default
+                    if (index === 0) {
+                      tabButton.classList.add("active");
+                      tabContent.classList.add("active");
+                    }
+                  });
+                })
+                .catch((error) => {
+                    console.error("Error fetching integration:", error);
+                });            }
+          });
+      }
+
+      // Call the function to update statuses
+      startStatusStream();
+    </script>
+  </body>
+</html>
